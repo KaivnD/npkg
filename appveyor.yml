@@ -1,0 +1,17 @@
+version: 0.0.{build}
+image: Visual Studio 2017
+before_build:
+- ps: nuget restore
+build:
+  project: NPKG.sln
+  verbosity: minimal
+after_build:
+- ps: Get-ChildItem NPKG/bin -Recurse | Where-Object {$_.Extension -ne ".gha" -and $_.Extension -ne ".dll" -and $_ -is [io.fileinfo]} | ForEach-Object {Remove-Item -Force -Path $_.FullName};
+artifacts:
+- path: NPKG/bin
+  name: npkg
+deploy:
+- provider: GitHub
+  auth_token:
+    secure: wBRUgTcJLpK8LROfc4ufglCXIHsnxm/e4t5wWK4jgA+R16mIyZMCsajXNNuzwFDt
+  draft: true
