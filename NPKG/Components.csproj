@@ -58,11 +58,11 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Components\Exporter.cs" />
-    <Compile Include="Components\GBlock.cs" />
-    <Compile Include="Components\GBlockAttr.cs" />
-    <Compile Include="Components\Identities.cs" />
-    <Compile Include="Components\Importer.cs" />
+    <Compile Include="InfoPanel.cs" />
+    <Compile Include="InfoPanelAttr.cs" />
+    <Compile Include="Package.cs" />
+    <Compile Include="PackageAttr.cs" />
+    <Compile Include="Identities.cs" />
     <Compile Include="NPKGInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -78,7 +78,7 @@
   </Target>
   -->
   <PropertyGroup>
-    <PostBuildEvent>Copy "$(TargetPath)" "$(TargetDir)$(ProjectName).gha"
+    <PostBuildEvent>Copy "$(TargetPath)" "$(TargetDir)$(SolutionName).gha"
 Erase "$(TargetPath)"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
