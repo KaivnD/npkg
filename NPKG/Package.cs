@@ -5,31 +5,180 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Parameters.Hints;
+using Grasshopper.Kernel.Special;
+using Grasshopper.Kernel.Types;
+using Rhino.Geometry;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace NPKG.Components
+namespace NPKG
 {
-    public class GBlock : GH_Component, IGH_InitCodeAware, IGH_VariableParameterComponent, IGH_DocumentOwner
+    public class Package : GH_Component, IGH_InitCodeAware, IGH_VariableParameterComponent
     {
-        public string packageName { set; get; }
-        public GBlock()
+        private string m_name = @"D:\test.gh";
+        internal GH_Document m_document;
+
+        public string packageName
+        {
+            get
+            {
+                return m_name;
+            }
+            set
+            {
+                m_name = value;
+            }
+        }
+
+        public Guid DocumentId
+        {
+            get
+            {
+                if (m_document == null)
+                {
+                    return Guid.Empty;
+                }
+                return m_document.DocumentID;
+            }
+        }
+
+        //public override BoundingBox ClippingBox
+        //{
+        //    get
+        //    {
+        //        BoundingBox clippingBox = base.ClippingBox;
+        //        if (m_document != null)
+        //        {
+        //            foreach (IGH_DocumentObject @object in m_document.Objects)
+        //            {
+        //                IGH_PreviewObject iGH_PreviewObject = @object as IGH_PreviewObject;
+        //                if (iGH_PreviewObject != null && !iGH_PreviewObject.Hidden)
+        //                {
+        //                    clippingBox.Union(iGH_PreviewObject.ClippingBox);
+        //                }
+        //            }
+        //            return clippingBox;
+        //        }
+        //        return clippingBox;
+        //    }
+        //}
+
+        public Package()
             :base("GBlock", "npkg", "", "NPKG", "Module")
         {
         }
 
         public override void CreateAttributes()
         {
-            m_attributes = new GBlockAttr(this);
+            m_attributes = new PackageAttr(this);
         }
 
         public override Guid ComponentGuid => Identities.GBlock;
 
+        protected override void BeforeSolveInstance()
+        {
+            GH_DocumentIO io = new GH_DocumentIO();
+            io.Open(packageName);
+            m_document = io.Document;
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            try
+            {
+                if (packageName == null) return;
+                Message = packageName;
+                DA.SetDataTree(0, SolutionTrigger());
+            } catch (Exception ex)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+            }
+        }
+
+        private DataTree<object> SolutionTrigger()
+        {
+            DataTree<object> dataTree = null;
+
+            GH_Document doc = m_document;
+            if (doc == null)
+                throw new Exception("File could not be opened.");
+
+            doc.Enabled = true;
+            doc.NewSolution(true, GH_SolutionMode.Silent);
+
+            GH_ClusterOutputHook[] outputs = doc.ClusterOutputHooks();
+
+            dataTree = new DataTree<object>();
+            var hint = new GH_NullHint();
+            dataTree.MergeStructure(outputs[0].VolatileData, hint);
+
+            doc.Dispose();
+
+            return dataTree;
+        }
+
+        private void SetPackageInput()
+        {
+            GH_ClusterInputHook[] inputs = m_document.ClusterInputHooks();
+            IGH_Param iGH_Param = Params.Input[0];
+
+            if (iGH_Param != null && inputs[0] != null)
+            {
+                GH_Structure<IGH_Goo> gH_Structure = new GH_Structure<IGH_Goo>();
+                int num = iGH_Param.VolatileData.PathCount - 1;
+                IEnumerator enumerator3 = default(IEnumerator);
+                for (int i = 0; i <= num; i++)
+                {
+                    GH_Path path = iGH_Param.VolatileData.get_Path(i);
+                    IList list = iGH_Param.VolatileData.get_Branch(i);
+                    try
+                    {
+                        enumerator3 = list.GetEnumerator();
+                        while (enumerator3.MoveNext())
+                        {
+                            IGH_Goo data = (IGH_Goo)enumerator3.Current;
+                            gH_Structure.Append(data, path);
+                        }
+                    }
+                    finally
+                    {
+                        if (enumerator3 is IDisposable)
+                        {
+                            (enumerator3 as IDisposable).Dispose();
+                        }
+                    }
+                    inputs[0].SetPlaceholderData(gH_Structure);
+                }
+            }
+        }
+
+        public void EditPackage()
+        {
+            if (m_document == null)
+            {
+                return;
+            }
+            GH_Canvas activeCanvas = Instances.ActiveCanvas;
+            if (activeCanvas != null)
+            {
+                Instances.DocumentServer.AddDocument(m_document);
+                activeCanvas.Document = m_document;
+                Rectangle screenPort = activeCanvas.Viewport.ScreenPort;
+                Rectangle r = GH_Convert.ToRectangle(m_document.BoundingBox());
+                r.Inflate(5, 5);
+                screenPort.Inflate(-5, -5);
+                new GH_NamedView(screenPort, r).SetToViewport(activeCanvas, 250);
+                m_document.NewSolution(expireAllObjects: false);
+            }
+        }
+
+        #region 动态输入输出部分
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddParameter(CreateParameter(GH_ParameterSide.Input, pManager.ParamCount));
@@ -103,47 +252,6 @@ namespace NPKG.Components
             return g_hints;
         }
 
-        protected override void SolveInstance(IGH_DataAccess DA)
-        {
-            try
-            {
-                if (packageName == null) return;
-                Message = packageName;
-                DA.SetDataTree(0, SolutionTrigger());
-            } catch (Exception ex)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
-            }
-        }
-
-        private DataTree<object> SolutionTrigger()
-        {
-            DataTree<object> dataTree = null;
-
-            GH_Document doc = OwnerDocument();
-            if (doc == null)
-                throw new Exception("File could not be opened.");
-
-            doc.Enabled = true;
-            doc.NewSolution(true, GH_SolutionMode.Silent);
-
-            foreach (IGH_DocumentObject obj in doc.Objects)
-            {
-                if (!obj.ComponentGuid.Equals(Identities.Exporter)) continue;
-                var component = obj as IGH_Component;
-                if (component == null) continue;
-
-                dataTree = new DataTree<object>();
-                var hint = new GH_NullHint();
-                dataTree.MergeStructure(component.Params.Input[0].VolatileData, hint);
-                break;
-            }
-
-            doc.Dispose();
-
-            return dataTree;
-        }
-
         public bool CanInsertParameter(GH_ParameterSide side, int index)
         {
             return index > -1;
@@ -201,6 +309,8 @@ namespace NPKG.Components
             }
         }
 
+        #endregion
+
         public void SetInitCode(string code)
         {
             packageName = code;
@@ -239,21 +349,6 @@ namespace NPKG.Components
                 }
             }
             return rc;
-        }
-
-        public void DocumentModified(GH_Document document)
-        {
-        }
-
-        public void DocumentClosed(GH_Document document)
-        {
-        }
-
-        public GH_Document OwnerDocument()
-        {
-            GH_DocumentIO io = new GH_DocumentIO();
-            io.Open(packageName);
-            return io.Document;
         }
     }
 }
