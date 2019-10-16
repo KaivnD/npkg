@@ -1,11 +1,8 @@
 ﻿using CommandLine;
-using System;
-using System.IO;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.IO;
 
 namespace Cli
 {
@@ -23,6 +20,16 @@ namespace Cli
 
         [Verb("add", HelpText = "Record changes to the repository.")]
         class AddOptions
+        {
+        }
+
+        [Verb("remove", HelpText = "Record changes to the repository.")]
+        class RemoveOptions
+        {
+        }
+
+        [Verb("install", HelpText = "Record changes to the repository.")]
+        class InstallOptions
         {
         }
 
@@ -55,15 +62,28 @@ namespace Cli
         {
             WorkDir = Directory.GetCurrentDirectory();
             JsonFile = Path.Combine(WorkDir, "npkg.json");
-            return Parser.Default.ParseArguments<InitOptions, AddOptions, PublishOptions>(args)
+            var res = Parser.Default.ParseArguments<InitOptions, AddOptions, PublishOptions, RemoveOptions, InstallOptions>(args)
               .MapResult(
-                (InitOptions opts) => RunInitAndReturnExitCode(opts),
-                (AddOptions opts) => RunAddAndReturnExitCode(opts),
-                (PublishOptions opts) => RunPublishAndReturnExitCode(opts),
+                (InitOptions opts) => InitPkgCommand(opts),
+                (AddOptions opts) => AddPkgCommand(opts),
+                (PublishOptions opts) => PublishCommand(opts),
+                (RemoveOptions opts) => RemoveCommand(opts),
+                (InstallOptions opts) => InstallCommand(opts),
                 errs => 1);
+            return res;
         }
 
-        private static int RunPublishAndReturnExitCode(PublishOptions opts)
+        private static int InstallCommand(InstallOptions opts)
+        {
+            throw new NotImplementedException();
+        }
+
+        private static int RemoveCommand(RemoveOptions opts)
+        {
+            throw new NotImplementedException();
+        }
+
+        private static int PublishCommand(PublishOptions opts)
         {
             if (File.Exists(JsonFile))
             {
@@ -76,7 +96,7 @@ namespace Cli
             return 1;
         }
 
-        private static int RunInitAndReturnExitCode(InitOptions opts)
+        private static int InitPkgCommand(InitOptions opts)
         {
             if (opts.path != null) WorkDir = opts.path;
             Package pkg = new Package();
@@ -116,7 +136,7 @@ namespace Cli
             File.WriteAllText(JsonFile, JsonConvert.SerializeObject(pkg, Formatting.Indented));
         }
 
-        private static int RunAddAndReturnExitCode(AddOptions opts)
+        private static int AddPkgCommand(AddOptions opts)
         {
             throw new NotImplementedException();
         }
