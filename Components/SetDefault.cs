@@ -49,12 +49,19 @@ namespace NPKG
 
         private void OnChange(IGH_DocumentObject sender, GH_ObjectChangedEventArgs e)
         {
-            var @input = Params.Input[0] as Param_ScriptVariable;
+            var input = Params.Input[0] as Param_ScriptVariable;
             var @default = Params.Input[1] as Param_ScriptVariable;
-            @default.Access = @input.Access;
-            @default.TypeHint = @input.TypeHint;
+            var output = Params.Output[0] as Param_ScriptVariable;
 
-            @default.RemoveAllSources();
+            if (input != null && @default !=null && output != null)
+            {
+                @default.Access = input.Access;
+                @default.TypeHint = input.TypeHint;
+                output.Access = input.Access;
+                output.TypeHint = input.TypeHint;
+
+                @default.RemoveAllSources();
+            }
         }
 
 
@@ -63,7 +70,12 @@ namespace NPKG
         /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Output", "O", "", GH_ParamAccess.tree);
+            pManager.AddParameter(new Param_ScriptVariable
+            {
+                Name = "Output",
+                NickName = "O",
+                Description = ""
+            });
         }
 
         /// <summary>
@@ -119,9 +131,6 @@ namespace NPKG
         /// <summary>
         /// Gets the unique ID for this component. Do not change this ID after release.
         /// </summary>
-        public override Guid ComponentGuid
-        {
-            get { return new Guid("996c325a-dc25-498f-b30f-257b938600a3"); }
-        }
+        public override Guid ComponentGuid => Identities.SetDefault;
     }
 }
