@@ -21,20 +21,9 @@ namespace NPKG
 {
     public class Package : GH_Component, IGH_InitCodeAware, IGH_VariableParameterComponent
     {
-        private string m_name = @"D:\test.gh";
         internal GH_Document m_document;
-
-        public string packageName
-        {
-            get
-            {
-                return m_name;
-            }
-            set
-            {
-                m_name = value;
-            }
-        }
+        public SortedDictionary<Guid, Guid> ParamHookMap;
+        public string packageName { get; set; } = @"D:\test.gh";
 
         public Guid DocumentId
         {
@@ -48,30 +37,10 @@ namespace NPKG
             }
         }
 
-        //public override BoundingBox ClippingBox
-        //{
-        //    get
-        //    {
-        //        BoundingBox clippingBox = base.ClippingBox;
-        //        if (m_document != null)
-        //        {
-        //            foreach (IGH_DocumentObject @object in m_document.Objects)
-        //            {
-        //                IGH_PreviewObject iGH_PreviewObject = @object as IGH_PreviewObject;
-        //                if (iGH_PreviewObject != null && !iGH_PreviewObject.Hidden)
-        //                {
-        //                    clippingBox.Union(iGH_PreviewObject.ClippingBox);
-        //                }
-        //            }
-        //            return clippingBox;
-        //        }
-        //        return clippingBox;
-        //    }
-        //}
-
         public Package()
-            :base("GBlock", "npkg", "", "NPKG", "Module")
+            : base("GBlock", "npkg", "", "NPKG", "Module")
         {
+            ParamHookMap = new SortedDictionary<Guid, Guid>();
         }
 
         public override void CreateAttributes()
@@ -81,21 +50,28 @@ namespace NPKG
 
         public override Guid ComponentGuid => Identities.GBlock;
 
+        private bool inputAdjusted = false;
+        private bool outputAdjusted = false;
+
         protected override void BeforeSolveInstance()
         {
             GH_DocumentIO io = new GH_DocumentIO();
             io.Open(packageName);
             m_document = io.Document;
+            if (!inputAdjusted) AdjustPackageInput();
+            if (!outputAdjusted) AdjustPackageOutput();
+            SetPackageInput();
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            if (packageName == null) return;
             try
             {
-                if (packageName == null) return;
                 Message = packageName;
                 DA.SetDataTree(0, SolutionTrigger());
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
             }
@@ -118,42 +94,93 @@ namespace NPKG
             var hint = new GH_NullHint();
             dataTree.MergeStructure(outputs[0].VolatileData, hint);
 
-            doc.Dispose();
+            //doc.Dispose();
 
             return dataTree;
         }
 
-        private void SetPackageInput()
+        private void AdjustPackageInput()
         {
             GH_ClusterInputHook[] inputs = m_document.ClusterInputHooks();
-            IGH_Param iGH_Param = Params.Input[0];
-
-            if (iGH_Param != null && inputs[0] != null)
+            for (int i = 0; i < inputs.Length; i++)
             {
-                GH_Structure<IGH_Goo> gH_Structure = new GH_Structure<IGH_Goo>();
-                int num = iGH_Param.VolatileData.PathCount - 1;
-                IEnumerator enumerator3 = default(IEnumerator);
-                for (int i = 0; i <= num; i++)
+                Params.RegisterInputParam(CreateParameter(GH_ParameterSide.Input, i));
+
+                GH_ClusterInputHook inputHook = inputs[i];
+                // 找到所有在输入端下游的Component
+                var allDnComponents = m_document.FindAllDownstreamObjects(inputs[0]);
+                if (allDnComponents.Count > 0)
                 {
-                    GH_Path path = iGH_Param.VolatileData.get_Path(i);
-                    IList list = iGH_Param.VolatileData.get_Branch(i);
-                    try
+                    // 取第一个
+                    var inputAdjustment = allDnComponents[0] as GH_Component;
+
+                    if (inputAdjustment != null && Equals(inputAdjustment.ComponentGuid, Identities.SetDefault))
                     {
-                        enumerator3 = list.GetEnumerator();
-                        while (enumerator3.MoveNext())
-                        {
-                            IGH_Goo data = (IGH_Goo)enumerator3.Current;
-                            gH_Structure.Append(data, path);
-                        }
+                        var plug = inputAdjustment.Params.Input[0] as Param_ScriptVariable;
+
+                        var input = Params.Input[i] as Param_ScriptVariable;
+                        input.Access = plug.Access;
+                        input.TypeHint = plug.TypeHint;
+                        input.NickName = inputHook.CustomNickName;
+                        FixGhInput(input);
+
+                        ParamHookMap.Remove(input.InstanceGuid);
+                        ParamHookMap.Add(input.InstanceGuid, inputHook.InstanceGuid);
                     }
-                    finally
+                }
+            }
+
+            inputAdjusted = true;
+        }
+
+        private void AdjustPackageOutput()
+        {
+            GH_ClusterOutputHook[] outputs = m_document.ClusterOutputHooks();
+            for (int i = 0; i < outputs.Length; i++)
+            {
+                Params.RegisterOutputParam(CreateParameter(GH_ParameterSide.Output, i));
+                GH_ClusterOutputHook outputHook = outputs[i];
+
+                Params.Output[0].NickName = outputHook.NickName;
+            }
+
+            outputAdjusted = true;
+        }
+
+        private void SetPackageInput()
+        {
+            foreach (KeyValuePair<Guid, Guid> item in ParamHookMap)
+            {
+                IGH_Param iGH_Param = base.Params.Find(item.Key);
+                GH_ClusterInputHook gH_ClusterInputHook = m_document.FindObject<GH_ClusterInputHook>(item.Value, topLevelOnly: true);
+
+                if (iGH_Param != null && gH_ClusterInputHook != null)
+                {
+                    GH_Structure<IGH_Goo> gH_Structure = new GH_Structure<IGH_Goo>();
+                    IEnumerator enumerator = default;
+                    for (int i = 0; i < iGH_Param.VolatileData.PathCount; i++)
                     {
-                        if (enumerator3 is IDisposable)
+                        GH_Path path = iGH_Param.VolatileData.get_Path(i);
+                        IList list = iGH_Param.VolatileData.get_Branch(i);
+                        try
                         {
-                            (enumerator3 as IDisposable).Dispose();
+                            enumerator = list.GetEnumerator();
+                            while (enumerator.MoveNext())
+                            {
+                                IGH_Goo data = (IGH_Goo)enumerator.Current;
+                                gH_Structure.Append(data, path);
+                            }
                         }
+                        finally
+                        {
+                            if (enumerator is IDisposable)
+                            {
+                                (enumerator as IDisposable).Dispose();
+                            }
+                        }
+
+                        gH_ClusterInputHook.SetPlaceholderData(gH_Structure);
                     }
-                    inputs[0].SetPlaceholderData(gH_Structure);
                 }
             }
         }
@@ -164,6 +191,7 @@ namespace NPKG
             {
                 return;
             }
+            SetPackageInput();
             GH_Canvas activeCanvas = Instances.ActiveCanvas;
             if (activeCanvas != null)
             {
@@ -178,15 +206,13 @@ namespace NPKG
             }
         }
 
-        #region 动态输入输出部分
+        #region 输入输出部分
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddParameter(CreateParameter(GH_ParameterSide.Input, pManager.ParamCount));
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.RegisterParam(CreateParameter(GH_ParameterSide.Output, pManager.ParamCount));
             VariableParameterMaintenance();
         }
 
