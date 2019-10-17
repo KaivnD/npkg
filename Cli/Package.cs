@@ -18,7 +18,7 @@ namespace Cli
 
         public string description { set; get; }
 
-        public string main { set; get; }
+        public List<string> modules { set; get; }
 
         public List<string> files { set; get; }
 
