@@ -41,6 +41,7 @@ namespace NPKG
             {
                 Name = "Default",
                 NickName = "D",
+                Optional = true,
                 Description = ""
             });
 

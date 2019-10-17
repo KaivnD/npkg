@@ -25,18 +25,6 @@ namespace NPKG
         public SortedDictionary<Guid, Guid> ParamHookMap;
         public string packageName { get; set; } = @"D:\test.gh";
 
-        public Guid DocumentId
-        {
-            get
-            {
-                if (m_document == null)
-                {
-                    return Guid.Empty;
-                }
-                return m_document.DocumentID;
-            }
-        }
-
         public Package()
             : base("GBlock", "npkg", "", "NPKG", "Module")
         {
@@ -94,7 +82,7 @@ namespace NPKG
             var hint = new GH_NullHint();
             dataTree.MergeStructure(outputs[0].VolatileData, hint);
 
-            //doc.Dispose();
+            doc.Dispose();
 
             return dataTree;
         }
