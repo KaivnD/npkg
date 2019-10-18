@@ -7,11 +7,13 @@ using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Parameters.Hints;
 using Grasshopper.Kernel.Special;
 using Grasshopper.Kernel.Types;
+using Newtonsoft.Json;
 using Rhino.Geometry;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -23,10 +25,14 @@ namespace NPKG
     {
         internal GH_Document m_document;
         public SortedDictionary<Guid, Guid> ParamHookMap;
-        public string packageName { get; set; } = @"D:\test.gh";
+
+        public string initCode { get; set; }
+        public string packageName { get; set; }
+
+        public string packagePath { get; set; }
 
         public Package()
-            : base("GBlock", "npkg", "", "NPKG", "Module")
+            : base("Package", "npkg", "", "NPKG", "Module")
         {
             ParamHookMap = new SortedDictionary<Guid, Guid>();
         }
@@ -38,33 +44,41 @@ namespace NPKG
 
         public override Guid ComponentGuid => Identities.GBlock;
 
+        public override GH_Exposure Exposure => GH_Exposure.obscure;
+
         private bool inputAdjusted = false;
         private bool outputAdjusted = false;
+        private string WorkDir { set; get; }
 
         protected override void BeforeSolveInstance()
         {
-            GH_DocumentIO io = new GH_DocumentIO();
-            io.Open(packageName);
-            m_document = io.Document;
-            if (!inputAdjusted) AdjustPackageInput();
-            if (!outputAdjusted) AdjustPackageOutput();
-            SetPackageInput();
+            if (packagePath != null)
+            {
+                GH_DocumentIO io = new GH_DocumentIO();
+                io.Open(packagePath);
+                m_document = io.Document;
+                if (!inputAdjusted) AdjustPackageInput();
+                if (!outputAdjusted) AdjustPackageOutput();
+                SetPackageInput();
+            }
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            if (packageName == null) return;
-            try
+            if (packagePath != null)
             {
-                Message = packageName;
-                DA.SetDataTree(0, SolutionTrigger());
-            }
-            catch (Exception ex)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                try
+                {
+                    Message = packageName;
+                    DA.SetDataTree(0, SolutionTrigger());
+                }
+                catch (Exception ex)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                }
             }
         }
-
+        
         private DataTree<object> SolutionTrigger()
         {
             DataTree<object> dataTree = null;
@@ -89,50 +103,56 @@ namespace NPKG
 
         private void AdjustPackageInput()
         {
-            GH_ClusterInputHook[] inputs = m_document.ClusterInputHooks();
-            for (int i = 0; i < inputs.Length; i++)
+            if (m_document != null)
             {
-                Params.RegisterInputParam(CreateParameter(GH_ParameterSide.Input, i));
-
-                GH_ClusterInputHook inputHook = inputs[i];
-                // 找到所有在输入端下游的Component
-                var allDnComponents = m_document.FindAllDownstreamObjects(inputs[0]);
-                if (allDnComponents.Count > 0)
+                GH_ClusterInputHook[] inputs = m_document.ClusterInputHooks();
+                for (int i = 0; i < inputs.Length; i++)
                 {
-                    // 取第一个
-                    var inputAdjustment = allDnComponents[0] as GH_Component;
+                    Params.RegisterInputParam(CreateParameter(GH_ParameterSide.Input, i));
 
-                    if (inputAdjustment != null && Equals(inputAdjustment.ComponentGuid, Identities.SetDefault))
+                    GH_ClusterInputHook inputHook = inputs[i];
+                    // 找到所有在输入端下游的Component
+                    var allDnComponents = m_document.FindAllDownstreamObjects(inputs[0]);
+                    if (allDnComponents.Count > 0)
                     {
-                        var plug = inputAdjustment.Params.Input[0] as Param_ScriptVariable;
+                        // 取第一个
+                        var inputAdjustment = allDnComponents[0] as GH_Component;
 
-                        var input = Params.Input[i] as Param_ScriptVariable;
-                        input.Access = plug.Access;
-                        input.TypeHint = plug.TypeHint;
-                        input.NickName = inputHook.CustomNickName;
-                        FixGhInput(input);
+                        if (inputAdjustment != null && Equals(inputAdjustment.ComponentGuid, Identities.SetDefault))
+                        {
+                            var plug = inputAdjustment.Params.Input[0] as Param_ScriptVariable;
 
-                        ParamHookMap.Remove(input.InstanceGuid);
-                        ParamHookMap.Add(input.InstanceGuid, inputHook.InstanceGuid);
+                            var input = Params.Input[i] as Param_ScriptVariable;
+                            input.Access = plug.Access;
+                            input.TypeHint = plug.TypeHint;
+                            input.NickName = inputHook.CustomNickName;
+                            FixGhInput(input);
+
+                            ParamHookMap.Remove(input.InstanceGuid);
+                            ParamHookMap.Add(input.InstanceGuid, inputHook.InstanceGuid);
+                        }
                     }
                 }
-            }
 
-            inputAdjusted = true;
+                inputAdjusted = true;
+            }
         }
 
         private void AdjustPackageOutput()
         {
-            GH_ClusterOutputHook[] outputs = m_document.ClusterOutputHooks();
-            for (int i = 0; i < outputs.Length; i++)
+            if (m_document != null)
             {
-                Params.RegisterOutputParam(CreateParameter(GH_ParameterSide.Output, i));
-                GH_ClusterOutputHook outputHook = outputs[i];
+                GH_ClusterOutputHook[] outputs = m_document.ClusterOutputHooks();
+                for (int i = 0; i < outputs.Length; i++)
+                {
+                    Params.RegisterOutputParam(CreateParameter(GH_ParameterSide.Output, i));
+                    GH_ClusterOutputHook outputHook = outputs[i];
 
-                Params.Output[0].NickName = outputHook.NickName;
+                    Params.Output[0].NickName = outputHook.NickName;
+                }
+
+                outputAdjusted = true;
             }
-
-            outputAdjusted = true;
         }
 
         private void SetPackageInput()
@@ -280,9 +300,9 @@ namespace NPKG
 
         public void SetInitCode(string code)
         {
-            packageName = code;
+            packagePath = code;
+            packageName = Path.GetFileNameWithoutExtension(code);
         }
-
 
         public override bool Write(GH_IO.Serialization.GH_IWriter writer)
         {

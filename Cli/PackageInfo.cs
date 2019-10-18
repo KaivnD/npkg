@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace Cli
 {
-    public class Package
+    public class PackageInfo
     {
-        public Package()
+        public PackageInfo()
         {
         }
 

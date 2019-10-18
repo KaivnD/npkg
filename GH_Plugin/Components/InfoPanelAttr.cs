@@ -51,7 +51,7 @@ namespace NPKG
             {
                 try
                 {
-                    string workDir = getWorkDir(gH_Document.FilePath);
+                    string workDir = Utils.getWorkDir(gH_Document.FilePath);
                     File.WriteAllText(Path.Combine(workDir, "README.md"), "# " + gH_Document.DisplayName);
                     File.WriteAllText(Path.Combine(workDir, "npkg.json"), "# " + gH_Document.DisplayName);
                 } catch
@@ -60,37 +60,6 @@ namespace NPKG
                 }
             }
             return GH_ObjectResponse.Handled;
-        }
-
-        /// <summary>
-        /// Find a dir contains a dir named .git
-        /// </summary>
-        /// <param name="path"></param>
-        /// <returns></returns>
-        public static string getWorkDir(string path)
-        {
-            if (File.Exists(path) || Directory.Exists(path))
-            {
-                if (!string.Equals(Path.GetDirectoryName(path), null))
-                {
-                    string fileDir = Path.GetDirectoryName(path);
-                    DirectoryInfo dir = new DirectoryInfo(fileDir);
-                    DirectoryInfo[] dirInfos = dir.GetDirectories();
-                    string workDir = string.Empty;
-                    foreach (DirectoryInfo info in dirInfos)
-                    {
-                        if (info.Name == ".git")
-                        {
-                            workDir = fileDir;
-                            break;
-                        }
-                    }
-                    if (string.Equals(workDir, string.Empty)) return getWorkDir(fileDir);
-                    else return workDir;
-                }
-                else throw new Exception(string.Format("This path is not in git repository", path));
-            }
-            else throw new Exception(string.Format("Path '{0}' doesn't exists !", path));
         }
     }
 }
