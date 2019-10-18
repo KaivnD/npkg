@@ -1,8 +1,10 @@
 ﻿using CommandLine;
 using ICSharpCode.SharpZipLib.GZip;
 using ICSharpCode.SharpZipLib.Tar;
+using Microsoft.Win32;
 using Newtonsoft.Json;
 using RestSharp;
+using RestSharp.Extensions;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -31,6 +33,9 @@ namespace Cli
         {
             [Value(0, HelpText = "Record changes to the repository.")]
             public string Package { set; get; }
+
+            [Option('g', "global", Required = false, Default = false)]
+            public bool Global { set; get; }
         }
 
         [Verb("remove", HelpText = "Record changes to the repository.")]
@@ -60,6 +65,12 @@ namespace Cli
 
         private static string WorkDir { set; get; }
 
+        private static string npkgDir { set; get; }
+
+        private static string homeDir { set; get; }
+
+        private static string AppDir { set; get; }
+
         private static string rcFile { set; get; }
 
         private static string m_jsonfile;
@@ -82,10 +93,21 @@ namespace Cli
 
         static int Main(string[] args)
         {
+            bool fromUrl = false;
+            if (args[0].Contains(':'))
+            {
+                fromUrl = true;
+                string argsFromUrl = args[0].Replace("\\", "").Replace("/", "").Split(':')[1];
+                argsFromUrl = argsFromUrl.Replace("%20", " ");
+                args = argsFromUrl.Split(' ');
+            }
             WorkDir = Directory.GetCurrentDirectory();
             JsonFile = Path.Combine(WorkDir, "npkg.json");
-            string homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             rcFile = Path.Combine(homeDir, ".npkgrc");
+            npkgDir = Path.Combine(WorkDir, "npkgs");
+            AppDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "npkg");
+            if (!Directory.Exists(AppDir)) Directory.CreateDirectory(AppDir);
 
             var res = Parser.Default.ParseArguments<InitOptions, AddOptions, PublishOptions, RemoveOptions, InstallOptions, SetOptions>(args)
               .MapResult(
@@ -96,7 +118,9 @@ namespace Cli
                 (InstallOptions opts) => InstallCommand(opts),
                 (SetOptions opts) => SetCommand(opts),
                 errs => 1);
-            return res;
+            Array.ForEach(args, arg => Console.WriteLine(arg));
+            if (fromUrl) Console.ReadLine();
+            return 1;
         }
 
         private static int SetCommand(SetOptions opts)
@@ -109,7 +133,8 @@ namespace Cli
 
         private static int InstallCommand(InstallOptions opts)
         {
-            throw new NotImplementedException();
+            RegisterMyProtocol(@"E:\Projects\NPKG\Cli\bin\Debug\npkg.exe");
+            return 1;
         }
 
         private static int RemoveCommand(RemoveOptions opts)
@@ -120,7 +145,7 @@ namespace Cli
         private static int InitPkgCommand(InitOptions opts)
         {
             if (opts.path != null) WorkDir = opts.path;
-            Package pkg = new Package();
+            PackageInfo pkg = new PackageInfo();
 
             string dirName = Path.GetFileNameWithoutExtension(WorkDir);
             pkg.name = dirName;
@@ -151,7 +176,7 @@ namespace Cli
             return 1;
         }
 
-        private static void InitPackage(Package pkg)
+        private static void InitPackage(PackageInfo pkg)
         {
             Directory.CreateDirectory(Path.Combine(WorkDir, "src"));
             File.WriteAllText(JsonFile, JsonConvert.SerializeObject(pkg, Formatting.Indented));
@@ -160,9 +185,35 @@ namespace Cli
             File.WriteAllText(Path.Combine(WorkDir, ".gitignore"), gitignore);
         }
 
+        static void RegisterMyProtocol(string myAppPath)  //myAppPath = full path to your application
+        {
+            RegistryKey key = Registry.ClassesRoot.OpenSubKey("npkg");  //open myApp protocol's subkey
+
+            if (key == null)  //if the protocol is not registered yet...we register it
+            {
+                key = Registry.ClassesRoot.CreateSubKey("npkg");
+                key.SetValue(string.Empty, "URL: npkg Protocol");
+                key.SetValue("URL Protocol", string.Empty);
+
+                key = key.CreateSubKey(@"shell\open\command");
+                key.SetValue(string.Empty, myAppPath + " " + "%1");
+                //%1 represents the argument - this tells windows to open this program with an argument / parameter
+            }
+
+            key.Close();
+        }
+
         private static int AddPkgCommand(AddOptions opts)
         {
-            string[] packageInfo = opts.Package.Split(':');
+            bool global = !Directory.GetFiles(WorkDir).ToList().Contains("npkg.json") || opts.Global;
+            if (global)
+            {
+                npkgDir = Path.Combine(AppDir, "npkgs");
+                if (!opts.Global)log(string.Format("当前文件夹下不存在npkg.json，将安装至{0}", npkgDir));
+            }
+            if (!Directory.Exists(npkgDir)) Directory.CreateDirectory(npkgDir);
+
+            string[] packageInfo = opts.Package.Split('@');
 
             if (packageInfo.Length > 2)
             {
@@ -172,26 +223,51 @@ namespace Cli
 
             RestClient client = null;
             RestRequest request = null;
-            MakeRequest("/package/get", Method.POST, out client, out request);
+            MakeRequest("/package/get/{name}/{version}", Method.POST, out client, out request);
 
-            request.AddQueryParameter("package", packageInfo[0]);
+            request.AddParameter("name", packageInfo[0], ParameterType.UrlSegment);
             if (packageInfo.Length == 2)
-                request.AddQueryParameter("version", packageInfo[1]);
+                request.AddParameter("version", packageInfo[1], ParameterType.UrlSegment);
 
-            string tempFile = Path.GetTempFileName();
-            using (var writer = File.OpenWrite(tempFile))
+            
+
+            List<Parameter> headers = client.Execute(request).Headers.ToList();
+            string orginalFilename = null;
+            foreach(Parameter header in headers)
             {
-                request.ResponseWriter = responseStream =>
-                {
-                    using (responseStream)
-                    {
-                        responseStream.CopyTo(writer);
-                    }
-                };
-                var response = client.DownloadData(request);
+                if (header.Name != "Filename") continue;
+                orginalFilename = header.Value.ToString();
             }
 
+            string hash = orginalFilename.Split('#')[1];
+            string filename = orginalFilename.Split('#')[0];
+            string pkgTar = Path.Combine(npkgDir, filename);
+            string pkgRoot = Path.Combine(npkgDir, packageInfo[0]);
+
+            string tmpFile = Path.GetTempFileName();
+            client.DownloadData(request).SaveAs(tmpFile);
+
+            if (string.Equals(hash, GetMD5HashFromFile(tmpFile)))
+            {
+                ExtractTGZ(tmpFile, pkgRoot);
+
+                File.Delete(tmpFile);
+            } else log("哈希验证未能通过");
+
             return 1;
+        }
+
+        public static void ExtractTGZ(string gzArchiveName, string destFolder)
+        {
+            Stream inStream = File.OpenRead(gzArchiveName);
+            Stream gzipStream = new GZipInputStream(inStream);
+
+            TarArchive tarArchive = TarArchive.CreateInputTarArchive(gzipStream);
+            tarArchive.ExtractContents(destFolder);
+            tarArchive.Close();
+
+            gzipStream.Close();
+            inStream.Close();
         }
 
         static void log(object str)
@@ -203,7 +279,7 @@ namespace Cli
         {
             if (File.Exists(JsonFile))
             {
-                Package pkg = JsonConvert.DeserializeObject<Package>(File.ReadAllText(JsonFile));
+                PackageInfo pkg = JsonConvert.DeserializeObject<PackageInfo>(File.ReadAllText(JsonFile));
                 string outputpath = Path.Combine(Path.GetTempPath(), Path.GetFileNameWithoutExtension(Path.GetTempFileName()) + ".tar.gz");
 
                 Stream outStream = File.Create(outputpath);
