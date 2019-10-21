@@ -103,13 +103,13 @@ namespace Cli
 
         private static int AddPkgCommand(AddOptions opts)
         {
-            return 1;
+            return pm.Add(opts.Package, opts.Global);
         }
 
         private static int PublishCommand(PublishOptions opts)
         {
 
-            return 1;
+            return pm.Publish();
         }
 
         private static int RemoveCommand(RemoveOptions opts)
@@ -124,7 +124,7 @@ namespace Cli
 
         private static int SetCommand(SetOptions opts)
         {
-            return 1;
+            return pm.Set(opts.option, opts.value);
         }
 
         static void RegisterMyProtocol(string myAppPath)  //myAppPath = full path to your application
