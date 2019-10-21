@@ -25,8 +25,6 @@ namespace NPKG
     {
         internal GH_Document m_document;
         public SortedDictionary<Guid, Guid> ParamHookMap;
-
-        public string initCode { get; set; }
         public string packageName { get; set; }
 
         public string packagePath { get; set; }
@@ -148,6 +146,8 @@ namespace NPKG
                     Params.RegisterOutputParam(CreateParameter(GH_ParameterSide.Output, i));
                     GH_ClusterOutputHook outputHook = outputs[i];
 
+                    //outputHook.Sources
+
                     Params.Output[0].NickName = outputHook.NickName;
                 }
 
@@ -200,18 +200,19 @@ namespace NPKG
                 return;
             }
             SetPackageInput();
-            GH_Canvas activeCanvas = Instances.ActiveCanvas;
-            if (activeCanvas != null)
-            {
-                Instances.DocumentServer.AddDocument(m_document);
-                activeCanvas.Document = m_document;
-                Rectangle screenPort = activeCanvas.Viewport.ScreenPort;
-                Rectangle r = GH_Convert.ToRectangle(m_document.BoundingBox());
-                r.Inflate(5, 5);
-                screenPort.Inflate(-5, -5);
-                new GH_NamedView(screenPort, r).SetToViewport(activeCanvas, 250);
-                m_document.NewSolution(expireAllObjects: false);
-            }
+            Instances.DocumentEditor.ScriptAccess_OpenDocument(packagePath);
+            //GH_Canvas activeCanvas = Instances.ActiveCanvas;
+            //if (activeCanvas != null)
+            //{
+                //Instances.DocumentServer.AddDocument(m_document);
+                //activeCanvas.Document = m_document;
+                //Rectangle screenPort = activeCanvas.Viewport.ScreenPort;
+                //Rectangle r = GH_Convert.ToRectangle(m_document.BoundingBox());
+                //r.Inflate(5, 5);
+                //screenPort.Inflate(-5, -5);
+                //new GH_NamedView(screenPort, r).SetToViewport(activeCanvas, 250);
+                //m_document.NewSolution(expireAllObjects: false);
+            //}
         }
 
         #region 输入输出部分
