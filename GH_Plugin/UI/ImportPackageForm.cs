@@ -33,28 +33,45 @@ namespace NPKG.UI
             searchInput.TextChanged += SearchInput_TextChanged;
         }
 
+        private int lastTextLength = 0;
+
         private void SearchInput_TextChanged(object sender, EventArgs e)
         {
             // TO DO 搜索框结果显示
 
             string text = searchInput.Text;
-            if (text.StartsWith("`"))
+            if (text.Contains("`"))
             {
                 FadeOut();
                 return;
             }
+
+            //if (text.Length > lastTextLength)
+            //{
+            //    Height += 12;
+            //}
+            //else
+            //{
+            //    Height -= 12;
+            //}
             //text = text.Trim();
             //PopulateHitList(text);
+            //lastTextLength = text.Length;
         }
 
         private void SearchInput_KeyDown(object sender, KeyEventArgs e)
         {
+            string input = searchInput.Text;
+            input = input.Trim();
             switch (e.KeyCode)
             {
                 default:
                     return;
                 case Keys.Return:
-                    InsertComponent();
+                    if (input.StartsWith(">"))
+                    {
+                        RunCommand(input.TrimStart(new char[] { '>' }));
+                    } else InsertComponent();
                     break;
                 case Keys.Cancel:
                 case Keys.Escape:
@@ -62,6 +79,10 @@ namespace NPKG.UI
                     break;
             }
             e.Handled = true;
+        }
+
+        private void RunCommand(string cmd)
+        {
         }
 
         private List<string> packageList = new List<string>

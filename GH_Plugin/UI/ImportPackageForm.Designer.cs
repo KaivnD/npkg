@@ -54,7 +54,7 @@ namespace NPKG.UI
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.SystemColors.ActiveCaptionText;
-            this.ClientSize = new System.Drawing.Size(360, 61);
+            this.ClientSize = new System.Drawing.Size(360, 60);
             this.ControlBox = false;
             this.Controls.Add(this.searchInput);
             this.ForeColor = System.Drawing.SystemColors.ControlLight;
