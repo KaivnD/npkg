@@ -39,9 +39,6 @@ namespace NPKG
 
                 importPackageForm.Show(Instances.ActiveCanvas.FindForm());
 
-            } else if (e.KeyCode == Keys.Oemtilde | e.Shift)
-            {
-                MessageBox.Show("Shift Package");
             }
         }
 

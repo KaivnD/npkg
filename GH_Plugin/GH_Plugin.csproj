@@ -72,6 +72,7 @@
     <Compile Include="Components\Identities.cs" />
     <Compile Include="NPKGInfo.cs" />
     <Compile Include="Commons\PackageInfo.cs" />
+    <Compile Include="UI\EtoForm.cs" />
     <Compile Include="UI\PackageWidget.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
@@ -103,6 +104,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\repository.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Core\Core.csproj">
+      <Project>{1e01f887-36f4-4d37-a92b-1e11642e74de}</Project>
+      <Name>Core</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
