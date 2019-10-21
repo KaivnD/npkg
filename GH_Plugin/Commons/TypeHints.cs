@@ -13,7 +13,7 @@ namespace NPKG
         static IGH_TypeHint[] PossibleHints =
         {
             new GH_HintSeparator(),
-            new GH_BooleanHint_CS(), new GH_IntegerHint_CS(), new GH_DoubleHint_CS(), new GH_ComplexHint(),
+            new GH_BooleanHint_CS(), new GH_IntegerHint_CS(), new GH_DoubleHint_CS(),
             new GH_StringHint_CS(), new GH_DateTimeHint(), new GH_ColorHint(),
             new GH_HintSeparator(),
             new GH_Point3dHint(),
@@ -28,12 +28,6 @@ namespace NPKG
                 if (g_hints.Count == 0)
                 {
                     g_hints.AddRange(PossibleHints);
-
-                    g_hints.RemoveAll(t =>
-                    {
-                        var y = t.GetType();
-                        return (y == typeof(GH_DoubleHint_CS) || y == typeof(GH_StringHint_CS));
-                    });
 
                     g_hints.Add(new GH_BoxHint());
 
