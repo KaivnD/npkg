@@ -69,14 +69,6 @@ namespace Cli
 
         static int Main(string[] args)
         {
-            bool fromUrl = false;
-            if (args[0].Contains(':'))
-            {
-                fromUrl = true;
-                string argsFromUrl = args[0].Replace("\\", "").Replace("/", "").Split(':')[1];
-                argsFromUrl = argsFromUrl.Replace("%20", " ");
-                args = argsFromUrl.Split(' ');
-            }
 
             WorkDir = Directory.GetCurrentDirectory();
 
@@ -91,8 +83,6 @@ namespace Cli
                 (InstallOptions opts) => InstallCommand(opts),
                 (SetOptions opts) => SetCommand(opts),
                 errs => 1);
-            Array.ForEach(args, arg => Console.WriteLine(arg));
-            if (fromUrl) Console.ReadLine();
             return 1;
         }
 
@@ -125,24 +115,6 @@ namespace Cli
         private static int SetCommand(SetOptions opts)
         {
             return pm.Set(opts.option, opts.value);
-        }
-
-        static void RegisterMyProtocol(string myAppPath)  //myAppPath = full path to your application
-        {
-            RegistryKey key = Registry.ClassesRoot.OpenSubKey("npkg");  //open myApp protocol's subkey
-
-            if (key == null)  //if the protocol is not registered yet...we register it
-            {
-                key = Registry.ClassesRoot.CreateSubKey("npkg");
-                key.SetValue(string.Empty, "URL: npkg Protocol");
-                key.SetValue("URL Protocol", string.Empty);
-
-                key = key.CreateSubKey(@"shell\open\command");
-                key.SetValue(string.Empty, myAppPath + " " + "%1");
-                //%1 represents the argument - this tells windows to open this program with an argument / parameter
-            }
-
-            key.Close();
         }
 
         static void log(object str)

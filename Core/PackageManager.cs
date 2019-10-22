@@ -19,7 +19,7 @@ namespace Core
         private string api;
         private string token;
 
-        public static string JsonFile
+        public string JsonFile
         {
             set
             {
@@ -36,7 +36,7 @@ namespace Core
         }
 
         public string homeDir { get; private set; }
-        public static string WorkDir { get; private set; }
+        public string WorkDir { get; private set; }
         public string rcFile { get; private set; }
         public string npkgDir { get; private set; }
         public string AppDir { get; private set; }
@@ -97,8 +97,8 @@ namespace Core
             pkg.dependencies = new List<Dependency>();
             pkg.files = new List<string>();
             pkg.modules = new List<string> { "src" };
+            if (!File.Exists(JsonFile)) InitPackage(pkg);
 
-            InitPackage(pkg);
             return 1;
         }
 
@@ -158,7 +158,7 @@ namespace Core
             Console.Write(v.ToString());
         }
 
-        private static void InitPackage(PackageInfo pkg)
+        private void InitPackage(PackageInfo pkg)
         {
             Directory.CreateDirectory(Path.Combine(WorkDir, "src"));
             File.WriteAllText(JsonFile, JsonConvert.SerializeObject(pkg, Formatting.Indented));
