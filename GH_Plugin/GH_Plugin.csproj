@@ -64,6 +64,7 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Commons\Commander.cs" />
     <Compile Include="Components\InfoPanel.cs" />
     <Compile Include="Components\InfoPanelAttr.cs" />
     <Compile Include="Loader.cs" />

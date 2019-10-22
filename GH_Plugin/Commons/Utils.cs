@@ -10,7 +10,7 @@ namespace NPKG
     public static class Utils
     {
         /// <summary>
-        /// Find a dir contains a dir named .git
+        /// Find a dir contains a dir named npkg.json
         /// </summary>
         /// <param name="path"></param>
         /// <returns></returns>
@@ -18,24 +18,21 @@ namespace NPKG
         {
             if (File.Exists(path) || Directory.Exists(path))
             {
-                if (!string.Equals(Path.GetDirectoryName(path), null))
+                if (!string.IsNullOrEmpty(Path.GetDirectoryName(path)))
                 {
-                    string fileDir = Path.GetDirectoryName(path);
-                    DirectoryInfo dir = new DirectoryInfo(fileDir);
-                    DirectoryInfo[] dirInfos = dir.GetDirectories();
-                    string workDir = string.Empty;
-                    foreach (DirectoryInfo info in dirInfos)
+                    if (File.Exists(path)) path = Path.GetDirectoryName(path);
+
+                    string[] files = Directory.GetFiles(path);
+                    string jsonFile = Path.Combine(path, "npkg.json");
+                    if (!files.Contains(jsonFile))
                     {
-                        if (info.Name == ".git")
-                        {
-                            workDir = fileDir;
-                            break;
-                        }
+                        DirectoryInfo info = new DirectoryInfo(path);
+
+                        return getWorkDir(info.Parent.FullName);
                     }
-                    if (string.Equals(workDir, string.Empty)) return getWorkDir(fileDir);
-                    else return workDir;
+                    else return path;
                 }
-                else throw new Exception(string.Format("This path is not in git repository", path));
+                else throw new Exception(string.Format("{0} This path is not in npkg", path));
             }
             else throw new Exception(string.Format("Path '{0}' doesn't exists !", path));
         }

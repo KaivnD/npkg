@@ -32,6 +32,7 @@ namespace NPKG.UI
         private void InitializeComponent()
         {
             this.searchInput = new System.Windows.Forms.TextBox();
+            this.echoContent = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // searchInput
@@ -49,13 +50,28 @@ namespace NPKG.UI
             this.searchInput.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
             this.searchInput.WordWrap = false;
             // 
+            // echoContent
+            // 
+            this.echoContent.BackColor = System.Drawing.SystemColors.InactiveCaptionText;
+            this.echoContent.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.echoContent.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.echoContent.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.echoContent.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.echoContent.Location = new System.Drawing.Point(8, 56);
+            this.echoContent.Name = "echoContent";
+            this.echoContent.Size = new System.Drawing.Size(344, 16);
+            this.echoContent.TabIndex = 1;
+            this.echoContent.Text = "Type something...";
+            this.echoContent.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
+            // 
             // ImportPackageForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.SystemColors.ActiveCaptionText;
-            this.ClientSize = new System.Drawing.Size(360, 60);
+            this.ClientSize = new System.Drawing.Size(360, 80);
             this.ControlBox = false;
+            this.Controls.Add(this.echoContent);
             this.Controls.Add(this.searchInput);
             this.ForeColor = System.Drawing.SystemColors.ControlLight;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
@@ -80,6 +96,7 @@ namespace NPKG.UI
 
         private System.Windows.Forms.TextBox searchInput;
         private bool mouseDown;
+        private TextBox echoContent;
 
         public Point originalMousePos { get; private set; }
     }

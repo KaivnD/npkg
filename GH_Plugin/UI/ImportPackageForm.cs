@@ -2,12 +2,14 @@
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Newtonsoft.Json;
+using NPKG.Commons;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace NPKG.UI
@@ -25,15 +27,13 @@ namespace NPKG.UI
             MouseMove += ImportPackageForm_MouseMove;
             KeyDown += ImportPackageForm_KeyDown;
             Canvas = Instances.ActiveCanvas;
-
+            SetWorkDir();
             InitializeComponent();
 
             searchInput.LostFocus += SearchInput_LostFocus;
             searchInput.KeyDown += SearchInput_KeyDown;
             searchInput.TextChanged += SearchInput_TextChanged;
         }
-
-        private int lastTextLength = 0;
 
         private void SearchInput_TextChanged(object sender, EventArgs e)
         {
@@ -83,6 +83,32 @@ namespace NPKG.UI
 
         private void RunCommand(string cmd)
         {
+            SetWorkDir();
+            Commander cmder = new Commander(cmd, WorkDir);
+            cmder.EchoEvent += async (sender, echo) =>
+            {
+                echoContent.BeginInvoke(new Action(() => echoContent.Text = echo));
+
+                await Task.Delay(60);
+                echoContent.BeginInvoke(new Action(() => echoContent.ForeColor = Color.Gray));
+                await Task.Delay(60);
+                echoContent.BeginInvoke(new Action(() => echoContent.ForeColor = Color.Silver));
+                await Task.Delay(60);
+                echoContent.BeginInvoke(new Action(() => echoContent.ForeColor = Color.LightGray));
+            };
+            cmder.DoneEvent += async (sender, echo) =>
+            {
+                
+                echoContent.BeginInvoke(new Action(() => echoContent.Text = echo));
+               
+                await Task.Delay(1000);
+                FadeOut();
+            };
+            cmder.ErrorEvent += (sender, error) => {
+                echoContent.BeginInvoke(new Action(() => echoContent.ForeColor = Color.Red));
+                echoContent.BeginInvoke(new Action(() => echoContent.Text = error));
+            };
+            cmder.Parese();
         }
 
         private List<string> packageList = new List<string>
@@ -149,26 +175,38 @@ namespace NPKG.UI
             FadeOut();
         }
 
+        public void SetWorkDir()
+        {
+            var ghDoc = Canvas.Document;
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (Canvas == null)
+            {
+                WorkDir = home;
+                return;
+            }
+            if (ghDoc == null)
+            {
+                WorkDir = home;
+                return;
+            }
+            if (!ghDoc.IsFilePathDefined)
+            {
+                WorkDir = home;
+                return;
+            }
+
+            try
+            {
+                WorkDir = Utils.getWorkDir(ghDoc.FilePath);
+            }
+            catch
+            {
+                WorkDir = home;
+            }
+        }
+
         public string FindPackagePath(string pkgcode)
         {
-            var canvas = Instances.ActiveCanvas;
-            var ghDoc = canvas.Document;
-            if (canvas == null || ghDoc == null || !ghDoc.IsFilePathDefined) WorkDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-
-            if (ghDoc != null)
-            {
-                if (ghDoc.IsFilePathDefined)
-                {
-                    try
-                    {
-                        WorkDir = Utils.getWorkDir(ghDoc.FilePath);
-                    }
-                    catch
-                    {
-                        WorkDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                    }
-                }
-            }
             string npkgDir = Path.Combine(WorkDir, "npkgs");
 
             string[] pkgcmd = pkgcode.Split('.');
