@@ -18,6 +18,10 @@ namespace Core
         private static string m_jsonfile;
         private string api;
         private string token;
+        public delegate void EchoHandler(object sender, string message);
+        public event EchoHandler EchoEvent;
+        public event EchoHandler DoneEvent;
+        public event EchoHandler ErrorEvent;
 
         public string JsonFile
         {
@@ -79,18 +83,18 @@ namespace Core
 
             if (!confirm)
             {
-                log(string.Format("name ({0})", dirName));
+                Echo("name ({0})", dirName);
                 string name = Console.ReadLine();
                 if (name != "") pkg.name = name;
 
-                log("version ?");
+                Echo("version ?");
                 pkg.version = Console.ReadLine();
-                log("description ?");
+                Echo("description ?");
                 pkg.description = Console.ReadLine();
 
-                log("repository url ?");
+                Echo("repository url ?");
                 pkg.repository = Console.ReadLine();
-                log("author ?");
+                Echo("author ?");
                 pkg.author = Console.ReadLine();
             }
 
@@ -98,16 +102,50 @@ namespace Core
             pkg.files = new List<string>();
             pkg.modules = new List<string> { "src" };
             if (!File.Exists(JsonFile)) InitPackage(pkg);
-
+            Done("Init 结束..");
             return 1;
+        }
+
+        private void Echo(string msg)
+        {
+            EchoEvent(this, string.Format("[{0}] {1}", DateTime.Now.ToLongTimeString(), msg));
+        }
+
+        private void Echo(string msg, string msg2)
+        {
+            EchoEvent(this, string.Format("[{0}] {1} {2}", DateTime.Now.ToLongTimeString(), msg, msg2));
+        }
+
+        private void Error(string msg)
+        {
+            ErrorEvent(this, string.Format("[{0}] {1}", DateTime.Now.ToLongTimeString(), msg));
+        }
+
+        private void Error(string msg, string msg2)
+        {
+            ErrorEvent(this, string.Format("[{0}] {1} {2}", DateTime.Now.ToLongTimeString(), msg, msg2));
+        }
+
+        private void Done(string msg)
+        {
+            DoneEvent(this, string.Format("[{0}] {1}", DateTime.Now.ToLongTimeString(), msg));
+        }
+
+        private void Done(string msg, string msg2)
+        {
+            DoneEvent(this, string.Format("[{0}] {1} {2}", DateTime.Now.ToLongTimeString(), msg, msg2));
         }
 
         public int Publish()
         {
             if (File.Exists(JsonFile))
             {
+                Echo("正在读取包信息");
                 PackageInfo pkg = JsonConvert.DeserializeObject<PackageInfo>(File.ReadAllText(JsonFile));
                 string outputpath = Path.Combine(Path.GetTempPath(), Path.GetFileNameWithoutExtension(Path.GetTempFileName()) + ".tar.gz");
+                Echo("包名", pkg.name);
+                Echo("版本", pkg.version);
+                Echo("作者", pkg.author);
 
                 Stream outStream = File.Create(outputpath);
                 Stream gzoStream = new GZipOutputStream(outStream);
@@ -124,8 +162,11 @@ namespace Core
 
                 tarArchive.Close();
 
+                Echo("已写入临时文件", outputpath);
                 string hash = GetMD5HashFromFile(outputpath);
+                Echo("哈希值", hash);
 
+                Echo("正在尝试推送到远程服务器", api);
                 try
                 {
                     RestClient client = null;
@@ -137,25 +178,23 @@ namespace Core
 
                     string docFile = Path.Combine(WorkDir, "README.md");
                     if (File.Exists(docFile)) request.AddParameter("doc", File.ReadAllText(docFile));
-                    else log("根目录下没有README.md， 跳过文档上传");
+                    else Echo("根目录下没有README.md， 跳过文档上传");
 
                     request.AddFile("package", outputpath);
                     IRestResponse response = client.Execute(request);
 
-                    log(response.Content);
+                    Echo(response.Content);
                 }
                 catch (Exception ex)
                 {
-                    log(ex.Message);
+                    Error("推送到远程服务器出了一些问题:");
+                    Error(ex.Message);
                 }
             }
-            else log("npkg.json is not exist");
-            return 1;
-        }
+            else Error("npkg.json is not exist");
 
-        private void log(object v)
-        {
-            Console.Write(v.ToString());
+            Done("Push 结束..");
+            return 1;
         }
 
         private void InitPackage(PackageInfo pkg)
@@ -169,9 +208,44 @@ namespace Core
 
         public int Set(string option, string value)
         {
-
-            File.AppendAllText(rcFile, string.Format("{0}={1}\n", option, value));
+            var config = ReadConfig();
+            config[option] = value;
+            File.WriteAllText(rcFile, ConfigToString(config));
+            Done("Set ", string.Format("{0}={1}", option, value));
             return 1;
+        }
+
+        private SortedDictionary<string, string> ReadConfig()
+        {
+            SortedDictionary<string, string> configMap = new SortedDictionary<string, string>();
+            if (File.Exists(rcFile))
+            {
+                string rcFileContet = File.ReadAllText(rcFile);
+                string[] configs = rcFileContet.Split(Environment.NewLine.ToCharArray());
+                configs = configs.Where(s => !string.IsNullOrEmpty(s)).ToArray();
+
+                foreach (string config in configs)
+                {
+                    string[] args = config.Split('=');
+                    if (args.Length != 2)
+                        continue;
+                    if (!configMap.ContainsKey(args[0]))
+                    {
+                        configMap.Add(args[0], args[1]);
+                    }                    
+                }
+            }
+            return configMap;
+        }
+
+        private string ConfigToString(SortedDictionary<string, string> map)
+        {
+            string content = "";
+            foreach (KeyValuePair<string, string> item in map)
+            {
+                content += string.Format("{0}={1}\n", item.Key, item.Value);
+            }
+            return content;
         }
 
         public int Pull (string pacakge, bool _global)
@@ -180,7 +254,7 @@ namespace Core
             if (global)
             {
                 npkgDir = Path.Combine(AppDir, "npkgs");
-                if (!_global) log(string.Format("当前文件夹下不存在npkg.json，将安装至{0}\n", npkgDir));
+                if (!_global) Echo("当前文件夹下不存在npkg.json，将安装至", npkgDir);
             }
             if (!Directory.Exists(npkgDir)) Directory.CreateDirectory(npkgDir);
 
@@ -188,7 +262,7 @@ namespace Core
 
             if (packageInfo.Length > 2)
             {
-                log("参数太多了");
+                Error("参数太多了");
                 return 0;
             }
 
@@ -199,33 +273,50 @@ namespace Core
             request.AddParameter("name", packageInfo[0], ParameterType.UrlSegment);
             if (packageInfo.Length == 2)
                 request.AddParameter("version", packageInfo[1], ParameterType.UrlSegment);
-            log(packageInfo[0]);
-            log(client.Execute(request).StatusCode);
-            log(client.Execute(request).Content);
-            //List<Parameter> headers = client.Execute(request).Headers.ToList();
-            //string orginalFilename = null;
-            //foreach (Parameter header in headers)
-            //{
-            //    if (header.Name != "Filename") continue;
-            //    orginalFilename = header.Value.ToString();
-            //}
 
-            //string hash = orginalFilename.Split('#')[1];
-            //string filename = orginalFilename.Split('#')[0];
-            //string pkgTar = Path.Combine(npkgDir, filename);
-            //string pkgRoot = Path.Combine(npkgDir, packageInfo[0]);
+            var response = client.Execute(request);
 
-            //string tmpFile = Path.GetTempFileName();
-            //client.DownloadData(request).SaveAs(tmpFile);
+            if (response.StatusCode == System.Net.HttpStatusCode.OK)
+            {
+                List<Parameter> headers = response.Headers.ToList();
+                string orginalFilename = null;
+                foreach (Parameter header in headers)
+                {
+                    if (header.Name != "Filename") continue;
+                    orginalFilename = header.Value.ToString();
+                }
 
-            //if (string.Equals(hash, GetMD5HashFromFile(tmpFile)))
-            //{
-            //    ExtractTGZ(tmpFile, pkgRoot);
+                string hash = orginalFilename.Split('#')[1];
+                string filename = orginalFilename.Split('#')[0];
+                string pkgTar = Path.Combine(npkgDir, filename);
+                string pkgRoot = Path.Combine(npkgDir, packageInfo[0]);
 
-            //    File.Delete(tmpFile);
-            //}
-            //else log("哈希验证未能通过");
+                string tmpFile = Path.GetTempFileName();
+                client.DownloadData(request).SaveAs(tmpFile);
 
+                if (string.Equals(hash, GetMD5HashFromFile(tmpFile)))
+                {
+                    if (Directory.Exists(pkgRoot))
+                    {
+                        try
+                        {
+                            Directory.Delete(pkgRoot, true);
+                        } catch (Exception ex)
+                        {
+                            Echo(ex.Message);
+                        }
+                    }
+                    ExtractTGZ(tmpFile, pkgRoot);
+
+                    File.Delete(tmpFile);
+                }
+                else Error("哈希验证未能通过");
+            }
+            else
+            {
+                Error(response.Content);
+            }
+            Done("Pull 结束..");
             return 1;
         }
 
@@ -243,25 +334,14 @@ namespace Core
             req = request;
         }
 
-        public string GetOption(string name)
+        public string GetOption(string option)
         {
-            if (!File.Exists(rcFile))
-                throw new Exception("配置文件不存在");
-
-            string rcFileContet = File.ReadAllText(rcFile);
-            string[] configs = rcFileContet.Split(Environment.NewLine.ToCharArray());
-            configs = configs.Where(s => !string.IsNullOrEmpty(s)).ToArray();
-
-            foreach (string config in configs)
+            string value = null;
+            if (ReadConfig().TryGetValue(option, out value))
             {
-                string[] args = config.Split('=');
-                if (args.Length != 2)
-                    continue;
-
-                if (args[0] == name)
-                    return args[1];
+                return value;
             }
-            throw new Exception("Option不存在");
+            else return null;
         }
     }
 }

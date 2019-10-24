@@ -74,6 +74,25 @@ namespace Cli
 
             pm = new PackageManager(WorkDir);
 
+            pm.EchoEvent += (sender, message) =>
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine(message);
+            };
+
+            pm.ErrorEvent += (sender, message) =>
+            {
+                Console.ForegroundColor = ConsoleColor.DarkRed;
+                Console.WriteLine(message);
+            };
+
+            pm.DoneEvent += (sender, message) =>
+            {
+                Console.ForegroundColor = ConsoleColor.DarkCyan;
+                Console.WriteLine(message);
+                Console.ForegroundColor = ConsoleColor.White;
+            };
+
             var res = Parser.Default.ParseArguments<InitOptions, PullOptions, PushOptions, RemoveOptions, InstallOptions, SetOptions>(args)
               .MapResult(
                 (InitOptions opts) => InitPkgCommand(opts),
