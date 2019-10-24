@@ -29,8 +29,8 @@ namespace Cli
             public bool confirm { set; get; }
         }
 
-        [Verb("add", HelpText = "Record changes to the repository.")]
-        class AddOptions
+        [Verb("pull", HelpText = "Record changes to the repository.")]
+        class PullOptions
         {
             [Value(0, HelpText = "Record changes to the repository.")]
             public string Package { set; get; }
@@ -49,8 +49,8 @@ namespace Cli
         {
         }
 
-        [Verb("publish", HelpText = "Publish package to npkg.net")]
-        class PublishOptions
+        [Verb("push", HelpText = "Push package to npkg.net")]
+        class PushOptions
         {
         }
 
@@ -74,11 +74,11 @@ namespace Cli
 
             pm = new PackageManager(WorkDir);
 
-            var res = Parser.Default.ParseArguments<InitOptions, AddOptions, PublishOptions, RemoveOptions, InstallOptions, SetOptions>(args)
+            var res = Parser.Default.ParseArguments<InitOptions, PullOptions, PushOptions, RemoveOptions, InstallOptions, SetOptions>(args)
               .MapResult(
                 (InitOptions opts) => InitPkgCommand(opts),
-                (AddOptions opts) => AddPkgCommand(opts),
-                (PublishOptions opts) => PublishCommand(opts),
+                (PullOptions opts) => PullPkgCommand(opts),
+                (PushOptions opts) => PushCommand(opts),
                 (RemoveOptions opts) => RemoveCommand(opts),
                 (InstallOptions opts) => InstallCommand(opts),
                 (SetOptions opts) => SetCommand(opts),
@@ -91,12 +91,12 @@ namespace Cli
             return pm.Init(opts.path, opts.confirm);
         }
 
-        private static int AddPkgCommand(AddOptions opts)
+        private static int PullPkgCommand(PullOptions opts)
         {
-            return pm.Add(opts.Package, opts.Global);
+            return pm.Pull(opts.Package, opts.Global);
         }
 
-        private static int PublishCommand(PublishOptions opts)
+        private static int PushCommand(PushOptions opts)
         {
 
             return pm.Publish();

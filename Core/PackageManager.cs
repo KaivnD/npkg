@@ -174,7 +174,7 @@ namespace Core
             return 1;
         }
 
-        public int Add(string pacakge, bool _global)
+        public int Pull (string pacakge, bool _global)
         {
             bool global = !Directory.GetFiles(WorkDir).ToList().Contains("npkg.json") || _global;
             if (global)
@@ -199,8 +199,6 @@ namespace Core
             request.AddParameter("name", packageInfo[0], ParameterType.UrlSegment);
             if (packageInfo.Length == 2)
                 request.AddParameter("version", packageInfo[1], ParameterType.UrlSegment);
-
-
 
             List<Parameter> headers = client.Execute(request).Headers.ToList();
             string orginalFilename = null;
