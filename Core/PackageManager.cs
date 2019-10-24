@@ -180,7 +180,7 @@ namespace Core
             if (global)
             {
                 npkgDir = Path.Combine(AppDir, "npkgs");
-                if (!_global) log(string.Format("当前文件夹下不存在npkg.json，将安装至{0}", npkgDir));
+                if (!_global) log(string.Format("当前文件夹下不存在npkg.json，将安装至{0}\n", npkgDir));
             }
             if (!Directory.Exists(npkgDir)) Directory.CreateDirectory(npkgDir);
 
@@ -199,30 +199,32 @@ namespace Core
             request.AddParameter("name", packageInfo[0], ParameterType.UrlSegment);
             if (packageInfo.Length == 2)
                 request.AddParameter("version", packageInfo[1], ParameterType.UrlSegment);
+            log(packageInfo[0]);
+            log(client.Execute(request).StatusCode);
+            log(client.Execute(request).Content);
+            //List<Parameter> headers = client.Execute(request).Headers.ToList();
+            //string orginalFilename = null;
+            //foreach (Parameter header in headers)
+            //{
+            //    if (header.Name != "Filename") continue;
+            //    orginalFilename = header.Value.ToString();
+            //}
 
-            List<Parameter> headers = client.Execute(request).Headers.ToList();
-            string orginalFilename = null;
-            foreach (Parameter header in headers)
-            {
-                if (header.Name != "Filename") continue;
-                orginalFilename = header.Value.ToString();
-            }
+            //string hash = orginalFilename.Split('#')[1];
+            //string filename = orginalFilename.Split('#')[0];
+            //string pkgTar = Path.Combine(npkgDir, filename);
+            //string pkgRoot = Path.Combine(npkgDir, packageInfo[0]);
 
-            string hash = orginalFilename.Split('#')[1];
-            string filename = orginalFilename.Split('#')[0];
-            string pkgTar = Path.Combine(npkgDir, filename);
-            string pkgRoot = Path.Combine(npkgDir, packageInfo[0]);
+            //string tmpFile = Path.GetTempFileName();
+            //client.DownloadData(request).SaveAs(tmpFile);
 
-            string tmpFile = Path.GetTempFileName();
-            client.DownloadData(request).SaveAs(tmpFile);
+            //if (string.Equals(hash, GetMD5HashFromFile(tmpFile)))
+            //{
+            //    ExtractTGZ(tmpFile, pkgRoot);
 
-            if (string.Equals(hash, GetMD5HashFromFile(tmpFile)))
-            {
-                ExtractTGZ(tmpFile, pkgRoot);
-
-                File.Delete(tmpFile);
-            }
-            else log("哈希验证未能通过");
+            //    File.Delete(tmpFile);
+            //}
+            //else log("哈希验证未能通过");
 
             return 1;
         }
